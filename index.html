@@ -3,197 +3,160 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Liquid Glass Snake</title>
+    <title>Snake Pro Max</title>
     <style>
-        :root {
-            --glass: rgba(255, 255, 255, 0.1);
-            --border: rgba(255, 255, 255, 0.2);
-            --neon: #00f2ff;
-        }
-
         body {
-            margin: 0;
-            background: radial-gradient(circle at center, #1e293b, #0f172a);
-            color: white;
+            margin: 0; background: #050505; color: white;
             font-family: 'Segoe UI', sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            overflow: hidden;
-            touch-action: none; /* Chống bị kéo trang khi đang chơi */
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100vh; overflow: hidden; touch-action: none;
         }
-
-        /* Hiệu ứng kính mờ cho bảng điểm */
-        .score-box {
-            background: var(--glass);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--border);
-            padding: 10px 30px;
-            border-radius: 20px;
-            margin-bottom: 15px;
-            font-size: 1.2rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        }
-
-        /* Màn hình game dạng Liquid Glass */
-        .canvas-container {
-            position: relative;
-            background: var(--glass);
-            backdrop-filter: blur(15px);
-            border: 2px solid var(--border);
-            border-radius: 20px;
-            box-shadow: 0 0 40px rgba(0, 242, 255, 0.15);
-        }
-
         canvas {
-            display: block;
-            border-radius: 18px;
+            background: #111; border-radius: 12px;
+            box-shadow: 0 0 50px rgba(0, 255, 150, 0.2);
+            max-width: 95vw; max-height: 50vh;
         }
-
-        /* Bộ điều khiển cho điện thoại */
-        .controls {
-            margin-top: 25px;
-            display: grid;
-            grid-template-columns: repeat(3, 70px);
-            grid-template-rows: repeat(2, 70px);
-            gap: 10px;
-            justify-items: center;
+        .ui { margin-bottom: 20px; text-align: center; }
+        .score { font-size: 32px; font-weight: 900; color: #00ff96; text-shadow: 0 0 15px #00ff96; }
+        
+        /* Bộ nút điều khiển cực nhạy */
+        .dpad {
+            display: grid; grid-template-columns: repeat(3, 80px); gap: 10px; margin-top: 30px;
         }
-
         .btn {
-            width: 70px;
-            height: 70px;
-            background: var(--glass);
-            backdrop-filter: blur(5px);
-            border: 1px solid var(--border);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            color: var(--neon);
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
+            width: 80px; height: 80px; background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(0, 255, 150, 0.3); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 30px; color: #00ff96; -webkit-tap-highlight-color: transparent;
         }
-
-        .btn:active {
-            background: var(--neon);
-            color: #000;
-            transform: scale(0.9);
-        }
-
-        .btn-up { grid-column: 2; }
-        .btn-left { grid-column: 1; grid-row: 2; }
-        .btn-down { grid-column: 2; grid-row: 2; }
-        .btn-right { grid-column: 3; grid-row: 2; }
-
+        .btn:active { background: #00ff96; color: #000; transform: scale(0.9); }
     </style>
 </head>
 <body>
 
-    <div class="score-box">Điểm: <span id="score">0</span></div>
+<div class="ui">
+    <div class="score" id="score">0</div>
+</div>
 
-    <div class="canvas-container">
-        <canvas id="game" width="300" height="300"></canvas>
-    </div>
+<canvas id="gameCanvas"></canvas>
 
-    <div class="controls">
-        <div class="btn btn-up" onclick="changeDir('UP')">▲</div>
-        <div class="btn btn-left" onclick="changeDir('LEFT')">◀</div>
-        <div class="btn btn-down" onclick="changeDir('DOWN')">▼</div>
-        <div class="btn btn-right" onclick="changeDir('RIGHT')">▶</div>
-    </div>
+<div class="dpad">
+    <div style="grid-column: 2" class="btn" id="up">▲</div>
+    <div style="grid-column: 1" class="btn" id="left">◀</div>
+    <div style="grid-column: 2" class="btn" id="down">▼</div>
+    <div style="grid-column: 3" class="btn" id="right">▶</div>
+</div>
 
-    <script>
-        const canvas = document.getElementById("game");
-        const ctx = canvas.getContext("2d");
-        const scoreDoc = document.getElementById("score");
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const scoreEl = document.getElementById("score");
 
-        const box = 15;
-        let score = 0;
-        let snake = [{x: 10 * box, y: 10 * box}];
-        let food = {
-            x: Math.floor(Math.random() * 19 + 1) * box,
-            y: Math.floor(Math.random() * 19 + 1) * box
-        };
-        let d = "RIGHT";
+    const GRID_SIZE = 20;
+    const TILE_COUNT = 20;
+    canvas.width = canvas.height = GRID_SIZE * TILE_COUNT;
 
-        // Nhận phím từ bàn phím (nếu chơi máy tính)
-        document.addEventListener("keydown", (e) => {
-            if(e.keyCode == 37 && d != "RIGHT") d = "LEFT";
-            if(e.keyCode == 38 && d != "DOWN") d = "UP";
-            if(e.keyCode == 39 && d != "LEFT") d = "RIGHT";
-            if(e.keyCode == 40 && d != "UP") d = "DOWN";
-        });
+    let snake = [{x: 10, y: 10}, {x: 10, y: 11}, {x: 10, y: 12}];
+    let food = {x: 5, y: 5};
+    let dx = 0, dy = -1;
+    let nextDx = 0, nextDy = -1;
+    let score = 0;
+    let lastTime = 0;
+    let moveTimer = 0;
+    const moveInterval = 120; // Tốc độ di chuyển (ms)
 
-        // Hàm cho nút bấm điện thoại
-        function changeDir(dir) {
-            if(dir == "LEFT" && d != "RIGHT") d = "LEFT";
-            if(dir == "UP" && d != "DOWN") d = "UP";
-            if(dir == "RIGHT" && d != "LEFT") d = "RIGHT";
-            if(dir == "DOWN" && d != "UP") d = "DOWN";
-        }
+    // Xử lý điều khiển
+    const input = (dir) => {
+        if (dir === 'UP' && dy === 0) { nextDx = 0; nextDy = -1; }
+        if (dir === 'DOWN' && dy === 0) { nextDx = 0; nextDy = 1; }
+        if (dir === 'LEFT' && dx === 0) { nextDx = -1; nextDy = 0; }
+        if (dir === 'RIGHT' && dx === 0) { nextDx = 1; nextDy = 0; }
+    };
 
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+    document.getElementById('up').ontouchstart = () => input('UP');
+    document.getElementById('down').ontouchstart = () => input('DOWN');
+    document.getElementById('left').ontouchstart = () => input('LEFT');
+    document.getElementById('right').ontouchstart = () => input('RIGHT');
+    
+    document.addEventListener('keydown', e => {
+        if (e.key === 'ArrowUp') input('UP');
+        if (e.key === 'ArrowDown') input('DOWN');
+        if (e.key === 'ArrowLeft') input('LEFT');
+        if (e.key === 'ArrowRight') input('RIGHT');
+    });
 
-            // Vẽ rắn (kiểu Liquid tròn trịa)
-            for(let i=0; i<snake.length; i++) {
-                ctx.fillStyle = (i == 0) ? "#00f2ff" : "rgba(0, 242, 255, 0.5)";
-                ctx.beginPath();
-                ctx.arc(snake[i].x + box/2, snake[i].y + box/2, box/2 - 1, 0, Math.PI*2);
-                ctx.fill();
+    function update(time) {
+        const dt = time - lastTime;
+        lastTime = time;
+        moveTimer += dt;
+
+        if (moveTimer > moveInterval) {
+            moveTimer = 0;
+            dx = nextDx; dy = nextDy;
+            
+            const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+
+            // Va chạm tường hoặc thân
+            if (head.x < 0 || head.x >= TILE_COUNT || head.y < 0 || head.y >= TILE_COUNT || 
+                snake.some((s, i) => i !== 0 && s.x === head.x && s.y === head.y)) {
+                alert("GAME OVER! Điểm: " + score);
+                location.reload();
+                return;
             }
 
-            // Vẽ mồi (Lấp lánh)
-            ctx.fillStyle = "#ff007f";
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = "#ff007f";
-            ctx.beginPath();
-            ctx.arc(food.x + box/2, food.y + box/2, box/2 - 2, 0, Math.PI*2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
+            snake.unshift(head);
 
-            let snakeX = snake[0].x;
-            let snakeY = snake[0].y;
-
-            if(d == "LEFT") snakeX -= box;
-            if(d == "UP") snakeY -= box;
-            if(d == "RIGHT") snakeX += box;
-            if(d == "DOWN") snakeY += box;
-
-            if(snakeX == food.x && snakeY == food.y) {
-                score++;
-                scoreDoc.innerText = score;
-                food = {
-                    x: Math.floor(Math.random() * 19 + 1) * box,
-                    y: Math.floor(Math.random() * 19 + 1) * box
-                };
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                scoreEl.innerText = score;
+                spawnFood();
             } else {
                 snake.pop();
             }
-
-            let newHead = {x: snakeX, y: snakeY};
-
-            if(snakeX < 0 || snakeX >= canvas.width || snakeY < 0 || snakeY >= canvas.height || collision(newHead, snake)) {
-                clearInterval(game);
-                alert("GAME OVER! Điểm: " + score);
-                location.reload();
-            }
-
-            snake.unshift(newHead);
         }
 
-        function collision(head, array) {
-            for(let i=0; i<array.length; i++) {
-                if(head.x == array[i].x && head.y == array[i].y) return true;
-            }
-            return false;
+        draw(moveTimer / moveInterval);
+        requestAnimationFrame(update);
+    }
+
+    function spawnFood() {
+        food = {
+            x: Math.floor(Math.random() * TILE_COUNT),
+            y: Math.floor(Math.random() * TILE_COUNT)
+        };
+    }
+
+    function draw(lerp) {
+        ctx.fillStyle = "#111";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Vẽ lưới mờ
+        ctx.strokeStyle = "#222";
+        for(let i=0; i<canvas.width; i+=GRID_SIZE) {
+            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
         }
 
-        let game = setInterval(draw, 120);
-    </script>
+        // Vẽ thức ăn (Animation nhấp nháy)
+        ctx.fillStyle = "#ff0055";
+        ctx.shadowBlur = 15; ctx.shadowColor = "#ff0055";
+        ctx.beginPath();
+        ctx.arc(food.x * GRID_SIZE + GRID_SIZE/2, food.y * GRID_SIZE + GRID_SIZE/2, GRID_SIZE/2.5, 0, Math.PI*2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Vẽ rắn (Smooth Animation)
+        snake.forEach((part, i) => {
+            ctx.fillStyle = i === 0 ? "#00ff96" : "#00aa66";
+            // Vẽ bo góc tròn
+            ctx.beginPath();
+            ctx.roundRect(part.x * GRID_SIZE + 2, part.y * GRID_SIZE + 2, GRID_SIZE - 4, GRID_SIZE - 4, 5);
+            ctx.fill();
+        });
+    }
+
+    spawnFood();
+    requestAnimationFrame(update);
+</script>
 </body>
 </html>
