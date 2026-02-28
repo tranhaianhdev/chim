@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHIM - Liquid News Fixed</title>
+    <style>
+        :root {
+            --bg: #060714;
+            --glass: rgba(255, 255, 255, 0.04);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --accent: #bc77ff;
+            --liquid-ease: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        body {
+            margin: 0; padding: 0;
+            background: radial-gradient(circle at 50% -20%, #2a1b52, #060714);
+            background-attachment: fixed;
+            color: #fff; font-family: 'Inter', system-ui, sans-serif;
+            min-height: 100vh; overflow-x: hidden;
+        }
+
+        nav {
+            position: fixed; top: 0; width: 100%;
+            background: rgba(6, 7, 20, 0.6);
+            backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 15px 8%; display: flex; justify-content: space-between; align-items: center;
+            z-index: 1000;
+        }
+
+        .logo { 
+            font-size: 2rem; font-weight: 900; letter-spacing: 4px; 
+            background: linear-gradient(to right, #bc77ff, #70a1ff); 
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
+        }
+
+        .container { padding: 120px 8% 60px; max-width: 1400px; margin: auto; }
+
+        #news-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 30px;
+        }
+
+        /* Animation lúc mới hiện ra */
+        @keyframes liquidRise {
+            from { opacity: 0; transform: translateY(50px) scale(0.9); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .news-card {
+            background: var(--glass);
+            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 30px; overflow: hidden;
+            text-decoration: none; color: white;
+            display: flex; flex-direction: column;
+            /* Chạy animation 1 lần rồi thôi */
+            animation: liquidRise 0.8s var(--liquid-ease) forwards;
+            /* Transition cực mượt cho Hover */
+            transition: transform 0.5s var(--liquid-ease), background 0.4s ease, border-color 0.4s ease, box-shadow 0.5s ease;
+            position: relative;
+            will-change: transform;
+        }
+
+        /* HIỆU ỨNG LIA CHUỘT: Phải mượt như thạch */
+        .news-card:hover {
+            transform: translateY(-12px) scale(1.05) rotate(1.5deg);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--accent);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6), 0 0 20px rgba(188, 119, 255, 0.2);
+            z-index: 10;
+        }
+
+        .news-img-wrapper { width: 100%; height: 220px; overflow: hidden; }
+        .news-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.8s var(--liquid-ease); }
+        .news-card:hover .news-img { transform: scale(1.15) rotate(-1.5deg); }
+
+        .news-content { padding: 25px; }
+        .news-tag { color: var(--accent); font-size: 0.8rem; font-weight: 800; margin-bottom: 12px; display: block; }
+        .news-title { font-size: 1.25rem; font-weight: 700; line-height: 1.4; }
+
+        .btn-container { 
+            width: 100%; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; padding: 60px 0; gap: 20px;
+        }
+
+        .btn-more {
+            background: linear-gradient(45deg, #6a11cb 0%, #2575fc 100%);
+            border: none; color: white; padding: 18px 50px; border-radius: 100px;
+            font-weight: 800; cursor: pointer; transition: 0.4s var(--liquid-ease);
+            text-transform: uppercase; letter-spacing: 2px;
+        }
+
+        .btn-more:hover { transform: scale(1.1) translateY(-3px); box-shadow: 0 10px 30px rgba(106, 17, 203, 0.4); }
+
+        .signature {
+            opacity: 0.2; font-size: 0.9rem; letter-spacing: 2px; 
+            color: #fff; font-weight: 300; user-select: none; transition: 0.5s;
+        }
+        .signature:hover { opacity: 0.6; transform: translateY(-5px); }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="logo">CHIM</div>
+    <div id="time" style="font-weight: 600; color: var(--accent);"></div>
+</nav>
+
+<div class="container">
+    <div id="news-grid"></div>
+    <div class="btn-container">
+        <button class="btn-more" id="load-more-btn" onclick="fetchNews()">Săn thêm tin mới</button>
+        <div class="signature">Tùng Thanh Quỳ Xuống 🗿</div>
+    </div>
+</div>
+
+<script>
+    let displayedLinks = new Set();
+    const categories = ['tin-moi-nhat', 'the-gioi', 'thoi-su', 'so-hoa', 'giai-tri'];
+    let catIndex = 0;
+
+    setInterval(() => {
+        document.getElementById('time').innerText = new Date().toLocaleTimeString('vi-VN');
+    }, 1000);
+
+    async function fetchNews() {
+        const btn = document.getElementById('load-more-btn');
+        btn.innerText = "CHIM ĐANG BAY...";
+        const cat = categories[catIndex % categories.length];
+        catIndex++;
+
+        const RSS_URL = `https://vnexpress.net/rss/${cat}.rss`;
+        const API_URL = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(RSS_URL)}&t=${Date.now()}`;
+
+        try {
+            const res = await fetch(API_URL);
+            const data = await res.json();
+            if (data.status === 'ok') {
+                const newItems = data.items.filter(item => !displayedLinks.has(item.link));
+                if (newItems.length > 0) render(newItems.slice(0, 6));
+                else fetchNews();
+            }
+        } catch (e) { btn.innerText = "LỖI KẾT NỐI"; }
+        finally { btn.innerText = "Săn thêm tin mới"; }
+    }
+
+    function render(items) {
+        const grid = document.getElementById('news-grid');
+        items.forEach((item, index) => {
+            displayedLinks.add(item.link);
+            let imgMatch = item.description.match(/src="([^"]+)"/);
+            let img = imgMatch ? imgMatch[1] : 'https://images.unsplash.com/photo-1504711432819-08479a55d8d4?w=500';
+            
+            const card = document.createElement('a');
+            card.href = item.link; card.target = "_blank"; card.className = 'news-card';
+            card.style.animationDelay = `${index * 0.1}s`;
+            
+            // Mẹo quan trọng: Sau khi chạy xong animation xuất hiện, gỡ nó ra để Hover mượt hơn
+            card.addEventListener('animationend', () => {
+                card.style.animation = 'none';
+                card.style.opacity = '1';
+            });
+
+            card.innerHTML = `
+                <div class="news-img-wrapper"><img src="${img}" class="news-img"></div>
+                <div class="news-content">
+                    <span class="news-tag">#${item.categories[0] || 'CHIM_TIN'}</span>
+                    <div class="news-title">${item.title}</div>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+    fetchNews();
+</script>
+</body>
+</html>
