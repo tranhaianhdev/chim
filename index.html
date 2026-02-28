@@ -1,24 +1,199 @@
-<style>
-  body { background: #000; color: #0f0; font-family: 'Courier New', monospace; text-align: center; padding-top: 20%; }
-  .loader { border: 5px solid #333; border-top: 5px solid #0f0; border-radius: 50%; width: 50px; height: 50px; animation: spin 2s linear infinite; margin: 20px auto; }
-  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-</style>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Liquid Glass Snake</title>
+    <style>
+        :root {
+            --glass: rgba(255, 255, 255, 0.1);
+            --border: rgba(255, 255, 255, 0.2);
+            --neon: #00f2ff;
+        }
 
-<div id="content">
-  <h1>ĐANG KẾT NỐI VỚI SERVER CỦA HANCA...</h1>
-  <div class="loader"></div>
-  <p id="status">Đang tải dữ liệu... [10%]</p>
-</div>
+        body {
+            margin: 0;
+            background: radial-gradient(circle at center, #1e293b, #0f172a);
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: none; /* Chống bị kéo trang khi đang chơi */
+        }
 
-<script>
-  let percent = 10;
-  let status = document.getElementById('status');
-  setInterval(() => {
-    if(percent < 100) {
-      percent += 1;
-      status.innerText = `Đang tải dữ liệu... [${percent}%]`;
-    } else {
-      document.body.innerHTML = "<h1 style='color:red;'>HACKED BY HANCA-BOT!</h1><p>Hệ thống của bạn đã bị kiểm soát.</p>";
-    }
-  }, 100);
-</script>
+        /* Hiệu ứng kính mờ cho bảng điểm */
+        .score-box {
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            padding: 10px 30px;
+            border-radius: 20px;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Màn hình game dạng Liquid Glass */
+        .canvas-container {
+            position: relative;
+            background: var(--glass);
+            backdrop-filter: blur(15px);
+            border: 2px solid var(--border);
+            border-radius: 20px;
+            box-shadow: 0 0 40px rgba(0, 242, 255, 0.15);
+        }
+
+        canvas {
+            display: block;
+            border-radius: 18px;
+        }
+
+        /* Bộ điều khiển cho điện thoại */
+        .controls {
+            margin-top: 25px;
+            display: grid;
+            grid-template-columns: repeat(3, 70px);
+            grid-template-rows: repeat(2, 70px);
+            gap: 10px;
+            justify-items: center;
+        }
+
+        .btn {
+            width: 70px;
+            height: 70px;
+            background: var(--glass);
+            backdrop-filter: blur(5px);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: var(--neon);
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn:active {
+            background: var(--neon);
+            color: #000;
+            transform: scale(0.9);
+        }
+
+        .btn-up { grid-column: 2; }
+        .btn-left { grid-column: 1; grid-row: 2; }
+        .btn-down { grid-column: 2; grid-row: 2; }
+        .btn-right { grid-column: 3; grid-row: 2; }
+
+    </style>
+</head>
+<body>
+
+    <div class="score-box">Điểm: <span id="score">0</span></div>
+
+    <div class="canvas-container">
+        <canvas id="game" width="300" height="300"></canvas>
+    </div>
+
+    <div class="controls">
+        <div class="btn btn-up" onclick="changeDir('UP')">▲</div>
+        <div class="btn btn-left" onclick="changeDir('LEFT')">◀</div>
+        <div class="btn btn-down" onclick="changeDir('DOWN')">▼</div>
+        <div class="btn btn-right" onclick="changeDir('RIGHT')">▶</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d");
+        const scoreDoc = document.getElementById("score");
+
+        const box = 15;
+        let score = 0;
+        let snake = [{x: 10 * box, y: 10 * box}];
+        let food = {
+            x: Math.floor(Math.random() * 19 + 1) * box,
+            y: Math.floor(Math.random() * 19 + 1) * box
+        };
+        let d = "RIGHT";
+
+        // Nhận phím từ bàn phím (nếu chơi máy tính)
+        document.addEventListener("keydown", (e) => {
+            if(e.keyCode == 37 && d != "RIGHT") d = "LEFT";
+            if(e.keyCode == 38 && d != "DOWN") d = "UP";
+            if(e.keyCode == 39 && d != "LEFT") d = "RIGHT";
+            if(e.keyCode == 40 && d != "UP") d = "DOWN";
+        });
+
+        // Hàm cho nút bấm điện thoại
+        function changeDir(dir) {
+            if(dir == "LEFT" && d != "RIGHT") d = "LEFT";
+            if(dir == "UP" && d != "DOWN") d = "UP";
+            if(dir == "RIGHT" && d != "LEFT") d = "RIGHT";
+            if(dir == "DOWN" && d != "UP") d = "DOWN";
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Vẽ rắn (kiểu Liquid tròn trịa)
+            for(let i=0; i<snake.length; i++) {
+                ctx.fillStyle = (i == 0) ? "#00f2ff" : "rgba(0, 242, 255, 0.5)";
+                ctx.beginPath();
+                ctx.arc(snake[i].x + box/2, snake[i].y + box/2, box/2 - 1, 0, Math.PI*2);
+                ctx.fill();
+            }
+
+            // Vẽ mồi (Lấp lánh)
+            ctx.fillStyle = "#ff007f";
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "#ff007f";
+            ctx.beginPath();
+            ctx.arc(food.x + box/2, food.y + box/2, box/2 - 2, 0, Math.PI*2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            let snakeX = snake[0].x;
+            let snakeY = snake[0].y;
+
+            if(d == "LEFT") snakeX -= box;
+            if(d == "UP") snakeY -= box;
+            if(d == "RIGHT") snakeX += box;
+            if(d == "DOWN") snakeY += box;
+
+            if(snakeX == food.x && snakeY == food.y) {
+                score++;
+                scoreDoc.innerText = score;
+                food = {
+                    x: Math.floor(Math.random() * 19 + 1) * box,
+                    y: Math.floor(Math.random() * 19 + 1) * box
+                };
+            } else {
+                snake.pop();
+            }
+
+            let newHead = {x: snakeX, y: snakeY};
+
+            if(snakeX < 0 || snakeX >= canvas.width || snakeY < 0 || snakeY >= canvas.height || collision(newHead, snake)) {
+                clearInterval(game);
+                alert("GAME OVER! Điểm: " + score);
+                location.reload();
+            }
+
+            snake.unshift(newHead);
+        }
+
+        function collision(head, array) {
+            for(let i=0; i<array.length; i++) {
+                if(head.x == array[i].x && head.y == array[i].y) return true;
+            }
+            return false;
+        }
+
+        let game = setInterval(draw, 120);
+    </script>
+</body>
+</html>
